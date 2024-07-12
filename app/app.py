@@ -15,7 +15,7 @@ import numpy as np
 import tf_keras as keras
 from scipy.spatial import distance
 import io
-
+# 
 model_url = "https://tfhub.dev/tensorflow/efficientnet/lite0/feature-vector/2"
 
 IMAGE_SHAPE = (244, 244)
@@ -25,45 +25,15 @@ model = keras.Sequential([
 ])
 
 def extract(file, is_from_user):
+  print(file)
   if (is_from_user == "yes"):
     file = Image.open(io.BytesIO(file)).convert('L').resize(IMAGE_SHAPE)
+    # file = Image.close()
   else:
      file = Image.open(file).convert('L').resize(IMAGE_SHAPE)
+    #  file = Image.close()
 
-#   file = np.array(file)    
-  file = np.stack((file,)*3, axis=-1)
-  file = np.array(file)/255.0
-
-  embedding = model.predict(file[np.newaxis, ...])
-
-  vgg16_feature_np = np.array(embedding)
-  flattended_feature = vgg16_feature_np.flatten()
-
-  return flattended_feature
-
-import tensorflow as tf
-import tensorflow_hub as hub
-from PIL import Image, ImageOps
-import numpy as np
-import tf_keras as keras
-from scipy.spatial import distance
-import io
-
-model_url = "https://tfhub.dev/tensorflow/efficientnet/lite0/feature-vector/2"
-
-IMAGE_SHAPE = (244, 244)
-
-model = keras.Sequential([
-    hub.KerasLayer(model_url, input_shape=IMAGE_SHAPE+(3,))
-])
-
-def extract(file, is_from_user):
-  if (is_from_user == "yes"):
-    file = Image.open(io.BytesIO(file)).convert('L').resize(IMAGE_SHAPE)
-  else:
-     file = Image.open(file).convert('L').resize(IMAGE_SHAPE)
-
-#   file = np.array(file)    
+  file = np.array(file)    
   file = np.stack((file,)*3, axis=-1)
   file = np.array(file)/255.0
 
@@ -99,20 +69,21 @@ def write_database(data):
 
 
 @app.post("/upload")
-async def create_upload_file(file: UploadFile = File(...)):
+async def create_upload_file(file: UploadFile):
     logging.info('Start comparing image uploaded by user')
+    request_image = file.file.read()
     similar_image = []
+    extract_img = extract(request_image, "yes")
     try:
         data = read_database()
         if len(data) > 0:
             # Transform the data to only include image_name
             for item in data:
                 path = item["image_name"]
-                cat1 = extract(f"images/{path}")
+                extract(f"images/{path}", "no")
 
                 request_image = file.file.read()
                 # image_file_pil = Image.open(io.BytesIO(request_image))
-                extract_img = extract(request_image, "yes")
 
                 accuracy = distance.cdist([extract_img], [cat1], metric = 'cosine')[0].tolist[0]
                 if accuracy < 0.6000:
@@ -128,8 +99,16 @@ async def create_upload_file(file: UploadFile = File(...)):
     logging.info('Starting file upload process')
     try:
         # upload image content
-        file_content = await file.read()
+        file.file.seek(0)
+        file_content = file.file.read()
+        file_size = len(file_content)
         file_path = Path(IMAGES_DIR) / file.filename
+
+        logging.info(f'Saving file to {file_path} with size {len(file_content)} bytes')
+
+        if file_size == 0:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
         with open(file_path, 'wb') as f:
             f.write(file_content)
         

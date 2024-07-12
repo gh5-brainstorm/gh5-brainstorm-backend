@@ -101,7 +101,6 @@ def write_database(data):
 @app.post("/upload")
 async def create_upload_file(file: UploadFile = File(...)):
     logging.info('Start comparing image uploaded by user')
-    result = []
     similar_image = []
     try:
         data = read_database()
@@ -118,9 +117,9 @@ async def create_upload_file(file: UploadFile = File(...)):
                 accuracy = distance.cdist([extract_img], [cat1], metric = 'cosine')[0].tolist[0]
                 if accuracy < 0.6000:
                     similar_image.append({
-                        "url": item["url"]
+                        "url": item["url"],
+                        "similarity_score": accuracy
                     })
-                result.append(accuracy)
                     
     except Exception as e:
         logging.error(f'Error occurred: {e}')
@@ -153,7 +152,6 @@ async def create_upload_file(file: UploadFile = File(...)):
                 "id": image_id,
                 "url": image_entry["url"],
                 "image_name": file.filename,
-                "similarity_score": result,  # corrected spelling from 'similiarity_score'
                 "similar_image": similar_image  # corrected spelling from 'similiar_image'
             }
         ]

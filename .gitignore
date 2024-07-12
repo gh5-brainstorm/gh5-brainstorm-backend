@@ -12,6 +12,7 @@ build/
 develop-eggs/
 dist/
 downloads/
+images/
 eggs/
 .eggs/
 lib/
@@ -144,6 +145,7 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+database.json
 
 # Pyre type checker
 .pyre/

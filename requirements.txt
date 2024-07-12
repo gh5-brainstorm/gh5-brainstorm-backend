@@ -2,3 +2,8 @@ fastapi
 uvicorn
 starlette
 requests
+tensorflow
+tensorflow-hub
+numpy
+tf-keras
+scipy

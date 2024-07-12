@@ -4,7 +4,6 @@ from fastapi.responses import FileResponse
 
 import requests
 import json
-import base64
 from pathlib import Path
 import logging
 import os
@@ -69,14 +68,27 @@ def write_database(data):
 @app.post("/upload")
 async def create_upload_file(file: UploadFile = File(...)):
     logging.info('Start comparing image uploaded by user')
+    result = []
+    similar_image = []
     try:
-        cat1 = extract('images/2560px-A-Cat.jpg', "no")
+        data = read_database()
+        if len(data) > 0:
+            # Transform the data to only include image_name
+            for item in data:
+                path = item["image_name"]
+                cat1 = extract(f"images/{path}")
 
-        request_image = file.file.read()
-        # image_file_pil = Image.open(io.BytesIO(request_image))
-        extract_img = extract(request_image, "yes")
+                request_image = file.file.read()
+                # image_file_pil = Image.open(io.BytesIO(request_image))
+                extract_img = extract(request_image, "yes")
 
-        result = distance.cdist([extract_img], [cat1], metric = 'cosine')[0]
+                accuracy = distance.cdist([extract_img], [cat1], metric = 'cosine')[0].tolist[0]
+                if accuracy < 0.6000:
+                    similar_image.append({
+                        "url": item["url"]
+                    })
+                result.append(accuracy)
+                    
     except Exception as e:
         logging.error(f'Error occurred: {e}')
         raise HTTPException(status_code=500, detail="Failed to comparing image")
@@ -98,16 +110,29 @@ async def create_upload_file(file: UploadFile = File(...)):
         image_entry = {
             "id": image_id,
             "url": f"{ngrok_url}/images/{file.filename}",
-<<<<<<< HEAD
-=======
-            "base64": base64_content  # Store base64 content in database for future use,
-            # "similiarity_score": result
->>>>>>> cc2f734d912076154320adbe8aa473f2ca68a02d
+            "image_name": file.filename,
         }
         data.append(image_entry)
         write_database(data)
 
-        return {"status": "ok", "id": image_id, "url": image_entry["url"], 'similirarity_score': result.tolist()}
+        curr_data = [
+            {
+                "id": image_id,
+                "url": image_entry["url"],
+                "image_name": file.filename,
+                "similarity_score": result,  # corrected spelling from 'similiarity_score'
+                "similar_image": similar_image  # corrected spelling from 'similiar_image'
+            }
+        ]
+
+        response = {
+            "statusCode": 200,
+            "message": "",
+            "data": curr_data
+        }
+        return JSONResponse(
+            content=response
+        )
     except Exception as e:
         logging.error(f'Error occurred: {e}')
         raise HTTPException(status_code=500, detail="Failed to upload file")

@@ -4,10 +4,42 @@ from fastapi.responses import FileResponse
 
 import requests
 import json
-import base64
 from pathlib import Path
 import logging
 import os
+
+import tensorflow as tf
+import tensorflow_hub as hub
+from PIL import Image, ImageOps
+import numpy as np
+import tf_keras as keras
+from scipy.spatial import distance
+import io
+
+model_url = "https://tfhub.dev/tensorflow/efficientnet/lite0/feature-vector/2"
+
+IMAGE_SHAPE = (244, 244)
+
+model = keras.Sequential([
+    hub.KerasLayer(model_url, input_shape=IMAGE_SHAPE+(3,))
+])
+
+def extract(file, is_from_user):
+  if (is_from_user == "yes"):
+    file = Image.open(io.BytesIO(file)).convert('L').resize(IMAGE_SHAPE)
+  else:
+     file = Image.open(file).convert('L').resize(IMAGE_SHAPE)
+
+#   file = np.array(file)    
+  file = np.stack((file,)*3, axis=-1)
+  file = np.array(file)/255.0
+
+  embedding = model.predict(file[np.newaxis, ...])
+
+  vgg16_feature_np = np.array(embedding)
+  flattended_feature = vgg16_feature_np.flatten()
+
+  return flattended_feature
 
 import tensorflow as tf
 import tensorflow_hub as hub
@@ -69,14 +101,27 @@ def write_database(data):
 @app.post("/upload")
 async def create_upload_file(file: UploadFile = File(...)):
     logging.info('Start comparing image uploaded by user')
+    result = []
+    similar_image = []
     try:
-        cat1 = extract('images/2560px-A-Cat.jpg', "no")
+        data = read_database()
+        if len(data) > 0:
+            # Transform the data to only include image_name
+            for item in data:
+                path = item["image_name"]
+                cat1 = extract(f"images/{path}")
 
-        request_image = file.file.read()
-        # image_file_pil = Image.open(io.BytesIO(request_image))
-        extract_img = extract(request_image, "yes")
+                request_image = file.file.read()
+                # image_file_pil = Image.open(io.BytesIO(request_image))
+                extract_img = extract(request_image, "yes")
 
-        result = distance.cdist([extract_img], [cat1], metric = 'cosine')[0]
+                accuracy = distance.cdist([extract_img], [cat1], metric = 'cosine')[0].tolist[0]
+                if accuracy < 0.6000:
+                    similar_image.append({
+                        "url": item["url"]
+                    })
+                result.append(accuracy)
+                    
     except Exception as e:
         logging.error(f'Error occurred: {e}')
         raise HTTPException(status_code=500, detail="Failed to comparing image")
@@ -85,8 +130,6 @@ async def create_upload_file(file: UploadFile = File(...)):
     try:
         # upload image content
         file_content = await file.read()
-        base64_content = base64.b64encode(file_content).decode('utf-8')  # Convert to base64 string
-
         file_path = Path(IMAGES_DIR) / file.filename
         with open(file_path, 'wb') as f:
             f.write(file_content)
@@ -100,13 +143,29 @@ async def create_upload_file(file: UploadFile = File(...)):
         image_entry = {
             "id": image_id,
             "url": f"{ngrok_url}/images/{file.filename}",
-            "base64": base64_content  # Store base64 content in database for future use,
-            # "similiarity_score": result
+            "image_name": file.filename,
         }
         data.append(image_entry)
         write_database(data)
 
-        return {"status": "ok", "id": image_id, "url": image_entry["url"], 'similirarity_score': result.tolist()}
+        curr_data = [
+            {
+                "id": image_id,
+                "url": image_entry["url"],
+                "image_name": file.filename,
+                "similarity_score": result,  # corrected spelling from 'similiarity_score'
+                "similar_image": similar_image  # corrected spelling from 'similiar_image'
+            }
+        ]
+
+        response = {
+            "statusCode": 200,
+            "message": "",
+            "data": curr_data
+        }
+        return JSONResponse(
+            content=response
+        )
     except Exception as e:
         logging.error(f'Error occurred: {e}')
         raise HTTPException(status_code=500, detail="Failed to upload file")
@@ -141,4 +200,9 @@ def get_image(filename: str):
 @app.get("/images")
 def get_all_images():
     data = read_database()
-    return JSONResponse(content=data)
+    response = {
+        "statusCode": 200,
+        "message": "",
+        "data": data
+    }
+    return JSONResponse(content=response)

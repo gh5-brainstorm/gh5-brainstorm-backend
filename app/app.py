@@ -183,3 +183,7 @@ def get_all_images():
         "data": data
     }
     return JSONResponse(content=response)
+
+@app.get("/")
+def get_root():
+    return "Welcome to artector server-side"

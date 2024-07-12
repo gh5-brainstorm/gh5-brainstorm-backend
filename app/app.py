@@ -85,7 +85,7 @@ async def create_upload_file(file: UploadFile):
                 request_image = file.file.read()
                 # image_file_pil = Image.open(io.BytesIO(request_image))
 
-                accuracy = distance.cdist([extract_img], [cat1], metric = 'cosine')[0].tolist[0]
+                accuracy = distance.cdist([extract_img], [cat1], metric = 'cosine')[0].tolist()[0]
                 if accuracy < 0.6000:
                     similar_image.append({
                         "url": item["url"],

@@ -38,8 +38,6 @@ async def create_upload_file(file: UploadFile = File(...)):
     logging.info('Starting file upload process')
     try:
         file_content = await file.read()
-        base64_content = base64.b64encode(file_content).decode('utf-8')  # Convert to base64 string
-
         file_path = Path(IMAGES_DIR) / file.filename
         with open(file_path, 'wb') as f:
             f.write(file_content)
@@ -53,7 +51,6 @@ async def create_upload_file(file: UploadFile = File(...)):
         image_entry = {
             "id": image_id,
             "url": f"{ngrok_url}/images/{file.filename}",
-            "base64": base64_content  # Store base64 content in database for future use
         }
         data.append(image_entry)
         write_database(data)
@@ -93,4 +90,9 @@ def get_image(filename: str):
 @app.get("/images")
 def get_all_images():
     data = read_database()
-    return JSONResponse(content=data)
+    response = {
+        "statusCode": 200,
+        "message": "",
+        "data": data
+    }
+    return JSONResponse(content=response)

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, APIRouter, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.responses import FileResponse
 
@@ -45,6 +45,8 @@ def extract(file, is_from_user):
   return flattended_feature
 
 app = FastAPI()
+
+api_v1 = APIRouter(prefix="/api/v1")
 
 logging.basicConfig(level=logging.INFO)
 
@@ -183,6 +185,8 @@ def get_all_images():
         "data": data
     }
     return JSONResponse(content=response)
+
+app.include_router(api_v1)
 
 @app.get("/")
 def get_root():
